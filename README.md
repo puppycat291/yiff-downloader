@@ -2,14 +2,14 @@
 
 # 🐾 Yiff Downloader
 
-**A modern, lightweight media downloader for e621.net / e926.net with automatic MP4 conversion.**
+**A modern, lightweight media downloader for e926.net / e621.net with automatic MP4 conversion.**
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![Platform](https://img.shields.io/badge/Platform-Linux-orange?logo=linux&logoColor=white)]()
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-2.0.0-purple)]()
 
-[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [FAQ](#-faq)
+[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Search Tips](#-search-tips) • [FAQ](#-faq)
 
 </div>
 
@@ -50,7 +50,7 @@ Built with **CustomTkinter** for a sleek interface and **FFmpeg** for fast, reli
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/YOUR_USERNAME/yiff-downloader.git
+git clone https://github.com/puppycat291/yiff-downloader.git
 cd yiff-downloader
 
 # 2. Run the automatic installer
@@ -80,7 +80,7 @@ sudo apt update
 sudo apt install -y python3 python3-venv python3-tk ffmpeg
 
 # 2. Clone the repository
-git clone https://github.com/YOUR_USERNAME/yiff-downloader.git
+git clone https://github.com/puppycat291/yiff-downloader.git
 cd yiff-downloader
 
 # 3. Create virtual environment
@@ -127,19 +127,6 @@ python3 yiff_downloader.py
 4. Click **🐾 Start Download**.
 5. Watch the live preview as files download and convert automatically.
 
-### Search Tips
-
-| Tag | Effect |
-|-----|--------|
-| `order:score` | Highest rated first |
-| `order:random` | Random order |
-| `order:rank` | Trending now |
-| `rating:safe` | SFW only |
-| `type:webm` | Videos only |
-| `type:gif` | GIFs only |
-| `type:jpg` | JPG images |
-| `artist:name` | Specific artist |
-
 ### Controls
 
 | Button | Action |
@@ -148,6 +135,79 @@ python3 yiff_downloader.py
 | ⏸️ **Pause** | Pause / resume |
 | ⏹️ **Stop** | Stop the entire download |
 | ⏭️ **Skip Current File** | Delete current, move to next |
+
+---
+
+## 🔎 Search Tips
+
+The app supports **e621's full tag syntax**. Here are some useful examples:
+
+### Order (Sorting)
+
+| Tag | Effect |
+|-----|--------|
+| `order:score` | Highest rated first |
+| `order:rank` | Trending / popular now |
+| `order:random` | Random order |
+| `order:id` | Newest first (default) |
+| `order:favcount` | Most favorited |
+
+### Content Rating
+
+| Tag | Effect |
+|-----|--------|
+| `rating:safe` | Safe content only (SFW) |
+| `rating:questionable` | Questionable content |
+| `rating:explicit` | Explicit content |
+
+### File Type
+
+| Tag | Effect |
+|-----|--------|
+| `type:webm` | Videos only |
+| `type:mp4` | MP4 videos only |
+| `type:gif` | Animated GIFs only |
+| `type:jpg` | JPG images |
+| `type:png` | PNG images |
+| `type:swf` | Flash files |
+
+### Filtering
+
+| Tag | Effect |
+|-----|--------|
+| `artist:name` | Posts by a specific artist |
+| `score:>100` | Score above 100 |
+| `score:<10` | Score below 10 |
+| `favcount:>50` | 50+ favorites |
+| `-tag` | **Exclude** a tag (e.g., `-human`) |
+| `~tag1 ~tag2` | Either tag (OR logic) |
+| `tag1 tag2` | Both tags (AND logic) |
+
+### Combining Tags
+
+You can combine as many tags as you want:
+
+```
+wolf male/male order:score rating:safe type:webm
+```
+
+This searches for:
+- **wolf** AND **male/male** content
+- **sorted by score** (highest first)
+- **safe rating only**
+- **videos only (webm)**
+
+### Practical Examples
+
+| Goal | Query |
+|------|-------|
+| Trending furry art | `furry order:rank` |
+| Best dragon art | `dragon order:score score:>200` |
+| Random wolf videos | `wolf type:webm order:random` |
+| SFW fox images | `fox rating:safe type:jpg` |
+| Specific artist | `artist:some_name order:score` |
+
+> 💡 **Pro Tip**: Combine `order:random` with a specific tag to discover new content you might not have seen before!
 
 ---
 
@@ -222,6 +282,12 @@ Yes, but with limitations:
 - Some tags may be restricted.
 
 **Get an API key** to unlock unlimited downloads.
+</details>
+
+<details>
+<summary><strong>❓ What does "order:rank" mean?</strong></summary>
+
+`order:rank` sorts results by **popularity / trending**. It's what you see on the e621 homepage "Hot" tab. Use it to find content that the community is currently enjoying.
 </details>
 
 ---
