@@ -1030,33 +1030,63 @@ class YiffDownloader(ctk.CTk):
             self.gif_frames = []
 
     def _show_video_gif(self, video_path):
-        """Convert video to a short 5-second GIF preview and animate it"""
+        """Convert middle 10 seconds of video to animated GIF for preview"""
         try:
             self._stop_animation()
             ffmpeg = Utils.find_ffmpeg()
             if not ffmpeg:
-                self.preview_label.configure(text="🎬\n\nffmpeg not found", image="")
+                self.preview_label.configure(text="ffmpeg not found", image="")
                 return
 
-            # Convert first 5 seconds to animated GIF
+            duration = self._get_video_duration(video_path)
+            PREVIEW_DURATION = 10
+
+            if duration <= PREVIEW_DURATION:
+                start_time = 0
+            else:
+                start_time = (duration - PREVIEW_DURATION) / 2
+
             tmp_gif = Path("/tmp") / "yiff_preview_anim.gif"
             cmd = [
-                ffmpeg, "-t", "5", "-i", str(video_path),
+                ffmpeg,
+                "-ss", str(start_time),
+                "-t", str(PREVIEW_DURATION),
+                "-i", str(video_path),
                 "-vf", "fps=10,scale=400:-1:flags=lanczos",
-                "-loop", "0", str(tmp_gif), "-y", "-loglevel", "error",
+                "-loop", "0",
+                str(tmp_gif), "-y", "-loglevel", "error",
             ]
-            r = subprocess.run(cmd, capture_output=True, timeout=30)
+            r = subprocess.run(cmd, capture_output=True, timeout=60)
             if r.returncode == 0 and tmp_gif.exists():
                 self._show_animated_gif(tmp_gif)
             else:
-                # Fallback: first frame only
                 img = self._extract_video_frame(video_path)
                 if img:
                     self._set_preview_image(img)
                 else:
-                    self.preview_label.configure(text="🎬\n\n(cannot preview)", image="")
+                    self.preview_label.configure(text="cannot preview", image="")
         except Exception as e:
             self.log(f"Video preview error: {e}", "error")
+
+    def _get_video_duration(self, video_path):
+        """Get video duration in seconds using ffprobe"""
+        try:
+            ffprobe = "/usr/bin/ffprobe"
+            if not os.path.isfile(ffprobe):
+                ffprobe = "ffprobe"
+            cmd = [
+                ffprobe,
+                "-v", "error",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                str(video_path),
+            ]
+            r = subprocess.run(cmd, capture_output=True, timeout=10)
+            if r.returncode == 0:
+                return float(r.stdout.decode().strip())
+        except Exception:
+            pass
+        return 0
 
     def _extract_video_frame(self, video_path):
         ffmpeg = Utils.find_ffmpeg()
