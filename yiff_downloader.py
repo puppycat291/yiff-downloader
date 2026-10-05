@@ -68,7 +68,7 @@ class ConfigManager:
         "download_dir": str(Path.home() / "YiffDownloads"),
         "safe_mode": False, "auto_convert": True, "delete_original": True,
         "video_quality": "High", "folder_structure": "none",
-        "theme": "Furry Orange", "background_image": "",
+        "theme": "Furry Orange",
         "last_query": "", "last_limit": 100,
     }
 
@@ -436,7 +436,6 @@ class YiffDownloader(ctk.CTk):
         self.downloader = None
         self.download_thread = None
         self.preview_photo = None
-        self.background_photo = None
 
         # Fonts
         self.font_title = ctk.CTkFont(family="Segoe UI", size=20, weight="bold")
@@ -449,8 +448,6 @@ class YiffDownloader(ctk.CTk):
         self._build_header()
         self._build_tabs()
 
-        # Apply background
-        self.after(200, self._apply_background)
 
         # First-run warnings (inside app)
         self.after(800, self._startup_checks)
@@ -765,25 +762,6 @@ class YiffDownloader(ctk.CTk):
             command=self._change_theme,
         ).pack(anchor="w", padx=15, pady=(0, 10))
 
-        # Background
-        bg_row = ctk.CTkFrame(scroll, fg_color="transparent")
-        bg_row.pack(fill="x", padx=15, pady=(5, 5))
-
-        ctk.CTkLabel(bg_row, text="Background Image:", font=self.font_label,
-                     text_color=TEXT).pack(side="left")
-
-        ctk.CTkButton(
-            bg_row, text="Clear", width=70, height=30,
-            fg_color=ERROR, hover_color="#c5283a",
-            font=self.font_small, command=self._clear_background,
-        ).pack(side="right", padx=5)
-
-        ctk.CTkButton(
-            bg_row, text="Choose", width=90, height=30,
-            fg_color=self.theme["secondary"], hover_color=self.theme["secondary_hover"],
-            font=self.font_small, command=self._choose_background,
-        ).pack(side="right")
-
         # --- Data ---
         self._section(scroll, "💾 Data & Backup")
 
@@ -838,7 +816,7 @@ class YiffDownloader(ctk.CTk):
                  "  👁️  Live preview of downloads\n"
                  "  ⏭️  Skip button to filter on-the-fly\n"
                  "  🖼️  Gallery of downloaded files\n"
-                 "  🎨 4 Themes & custom background\n"
+                 "  🎨 4 Themes\n"
                  "  📊 Statistics & progress tracking",
             font=self.font_label, text_color=TEXT, justify="center",
         ).pack(pady=15)
@@ -913,59 +891,6 @@ class YiffDownloader(ctk.CTk):
             ConfigManager.update(download_dir=path)
             self.dir_label.configure(text=path)
             self.log(f"📁 Download folder: {path}")
-
-    # ========================================================
-    # BACKGROUND
-    # ========================================================
-    def _apply_background(self):
-        bg = self.config.get("background_image", "")
-        if not bg or not os.path.isfile(bg):
-            return
-        try:
-            # Remove old
-            if hasattr(self, "bg_canvas") and self.bg_canvas:
-                self.bg_canvas.destroy()
-
-            from PIL import Image as PILImage
-            img = PILImage.open(bg)
-            w, h = self.winfo_width(), self.winfo_height()
-            if w < 100 or h < 100:
-                w, h = 1250, 820
-            img = img.resize((w, h), PILImage.LANCZOS)
-
-            # Dark overlay for readability
-            overlay = PILImage.new("RGBA", img.size, (26, 22, 37, 200))
-            img = PILImage.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
-
-            self.background_photo = ImageTk.PhotoImage(img)
-
-            # Use Canvas so it's behind everything
-            self.bg_canvas = tk.Canvas(self, width=w, height=h,
-                                        highlightthickness=0, bd=0)
-            self.bg_canvas.place(x=0, y=0, relwidth=1, relheight=1)
-            self.bg_canvas.create_image(0, 0, image=self.background_photo, anchor="nw")
-            self.bg_canvas.lower()
-        except Exception as e:
-            self.log(f"Background error: {e}", "error")
-
-    def _choose_background(self):
-        path = filedialog.askopenfilename(
-            title="Choose background",
-            filetypes=[("Images", "*.png *.jpg *.jpeg *.webp *.bmp")],
-        )
-        if path:
-            ConfigManager.update(background_image=path)
-            self.config["background_image"] = path
-            self._apply_background()
-            self.log(f"🎨 Background set: {os.path.basename(path)}", "success")
-
-    def _clear_background(self):
-        ConfigManager.update(background_image="")
-        self.config["background_image"] = ""
-        if hasattr(self, "bg_canvas") and self.bg_canvas:
-            self.bg_canvas.destroy()
-            self.bg_canvas = None
-        self.log("🎨 Background cleared")
 
     # ========================================================
     # THEME
