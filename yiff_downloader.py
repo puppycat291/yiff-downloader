@@ -325,7 +325,8 @@ class Downloader:
             "-profile:v", "baseline",
             "-level", "3.1",
             "-pix_fmt", "yuv420p",
-            "-an",
+            "-c:a", "aac",
+            "-b:a", "128k",
             "-movflags", "+faststart",
             str(output), "-y", "-loglevel", "error",
         ]
