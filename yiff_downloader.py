@@ -319,8 +319,14 @@ class Downloader:
         q = Utils.quality(self.cfg.get("video_quality", "High"))
         cmd = [
             self.ffmpeg, "-i", str(input_path),
-            "-c:v", "libx264", "-preset", q["preset"], "-crf", q["crf"],
-            "-an", "-movflags", "+faststart",
+            "-c:v", "libx264",
+            "-preset", q["preset"],
+            "-crf", q["crf"],
+            "-profile:v", "baseline",
+            "-level", "3.1",
+            "-pix_fmt", "yuv420p",
+            "-an",
+            "-movflags", "+faststart",
             str(output), "-y", "-loglevel", "error",
         ]
         try:
