@@ -23,7 +23,7 @@ import requests
 # ============================================================
 # 📌 APP INFO
 # ============================================================
-__version__ = "2.1.0"
+__version__ = "2.1.1"
 GITHUB_REPO = "puppycat291/yiff-downloader"
 VERSION_URL = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/version.txt"
 REPO_URL = f"https://github.com/{GITHUB_REPO}"
@@ -379,12 +379,24 @@ class Downloader:
             # Use CURRENT query (passed at download time)
             query = self.current_query.strip()
             if query:
-                # Take first tag from query, sanitize
-                first = query.split()[0] if query.split() else ""
-                if first:
-                    # Replace / with _
-                    first = first.replace("/", "_")
-                    return Utils.sanitize(first)
+                # Take ALL tags, skip modifiers and negative tags
+                parts = []
+                for token in query.split():
+                    # Skip modifiers
+                    if token.startswith(("order:", "rating:", "limit:", "score:", "favcount:")):
+                        continue
+                    # Skip negative tags
+                    if token.startswith("-"):
+                        continue
+                    # Clean the tag
+                    clean = token.replace("/", "_").replace("'", "")
+                    if clean:
+                        parts.append(clean)
+                
+                if parts:
+                    # Combine max 3 tags into one folder
+                    folder_name = "_".join(parts[:3])
+                    return Utils.sanitize(folder_name)
             
             # Fallback: species
             if tags.get("species"):
