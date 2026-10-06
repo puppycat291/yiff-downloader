@@ -44,6 +44,21 @@ Built with **CustomTkinter** for a sleek interface and **FFmpeg** for fast, reli
 
 ---
 
+## 📸 Screenshots
+
+### 📥 Download Tab
+![Download Tab](assets/screenshots/download.jpg)
+
+### 🖼️ Gallery
+![Gallery](assets/screenshots/gallery.jpg)
+
+### ⚙️ Settings
+![Settings](assets/screenshots/settings.jpg)
+
+### ℹ️ About
+![About](assets/screenshots/about.jpg)
+
+
 ## 🚀 Installation
 
 ### ⚡ Quick Install (One Command)
