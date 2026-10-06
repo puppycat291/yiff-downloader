@@ -59,6 +59,12 @@ Built with **CustomTkinter** for a sleek interface and **FFmpeg** for fast, reli
 ![About](assets/screenshots/about.jpg)
 
 
+
+## 🎬 Demo
+
+![Yiff Downloader Demo](assets/demo.gif)
+
+
 ## 🚀 Installation
 
 ### ⚡ Quick Install (One Command)
