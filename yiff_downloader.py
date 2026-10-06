@@ -23,7 +23,7 @@ import requests
 # ============================================================
 # 📌 APP INFO
 # ============================================================
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 GITHUB_REPO = "puppycat291/yiff-downloader"
 VERSION_URL = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/version.txt"
 REPO_URL = f"https://github.com/{GITHUB_REPO}"
@@ -215,7 +215,20 @@ class E621API:
     def _base(self):
         return "https://e926.net" if self.cfg.get("safe_mode") else "https://e621.net"
 
+    @staticmethod
+    def sanitize_tags(tags):
+        """Fix common tag issues for e621 API compatibility"""
+        if not tags:
+            return tags
+        # e621 tags cannot contain apostrophes - remove them
+        # (e.g. "drag'n_wash" -> "dragn_wash")
+        tags = tags.replace("'", "")
+        tags = tags.replace("\u2019", "")  # curly apostrophe
+        tags = tags.replace("\u2018", "")  # opening curly
+        return tags
+
     def search(self, tags, limit=100, page=1):
+        tags = self.sanitize_tags(tags)
         try:
             r = self.s.get(f"{self._base()}/posts.json",
                            params={"tags": tags, "limit": min(limit, self.MAX), "page": page},
@@ -272,6 +285,7 @@ class Downloader:
         self.skip_flag = threading.Event()
         self.downloaded = 0
         self.converted = 0
+        self.current_query = ""  # ← current search query for folder structure
 
     def stop(self):
         self.stop_flag.set()
@@ -345,23 +359,45 @@ class Downloader:
             return False
 
     def _folder(self, post):
+        """Determine subfolder based on settings"""
         s = self.cfg.get("folder_structure", "none")
         if s == "none":
             return ""
+        
         tags = post.get("tags", {})
-        if s == "artist" and tags.get("artist"):
-            return Utils.sanitize(tags["artist"][0])
-        if s == "pool" and post.get("pools"):
-            return f"pool_{post['pools'][0]}"
-        if s == "tag" and tags.get("general"):
-            return Utils.sanitize(tags["general"][0])
+        
+        if s == "artist":
+            artists = tags.get("artist", []) or tags.get("contributor", [])
+            if artists:
+                return Utils.sanitize(artists[0])
+        
+        elif s == "pool":
+            if post.get("pools"):
+                return f"pool_{post['pools'][0]}"
+        
+        elif s == "tag":
+            # Use CURRENT query (passed at download time)
+            query = self.current_query.strip()
+            if query:
+                # Take first tag from query, sanitize
+                first = query.split()[0] if query.split() else ""
+                if first:
+                    # Replace / with _
+                    first = first.replace("/", "_")
+                    return Utils.sanitize(first)
+            
+            # Fallback: species
+            if tags.get("species"):
+                return Utils.sanitize(tags["species"][0])
+        
         return ""
 
-    def process(self, posts, download_dir):
+    def process(self, posts, download_dir, query=""):
         base = Path(download_dir)
         total = len(posts)
         start = time.time()
         total_bytes = 0
+        self.current_query = query  # ← store current query
 
         for i, post in enumerate(posts, 1):
             if self.stop_flag.is_set():
@@ -511,7 +547,7 @@ class YiffDownloader(ctk.CTk):
                     frame = gif.copy().convert("RGBA")
                     frame = frame.resize((48, 48), Image.LANCZOS)
                     self.header_gif_frames.append(ImageTk.PhotoImage(frame))
-                    self.header_gif_durations.append(gif.info.get("duration", 100))
+                    self.header_gif_durations.append(max(gif.info.get("duration", 100), 150))
                 if self.header_gif_frames:
                     self.header_gif_label = ctk.CTkLabel(
                         self.header, text="",
@@ -1097,6 +1133,12 @@ class YiffDownloader(ctk.CTk):
 
         self.log_box.configure(state="normal")
         self.log_box.insert("end", line)
+        
+        # Trim log if too long (keep last 500 lines)
+        lines = int(self.log_box.index("end-1c").split(".")[0])
+        if lines > 500:
+            self.log_box.delete("1.0", f"{lines - 400}.0")
+        
         self.log_box.see("end")
         self.log_box.configure(state="disabled")
 
@@ -1111,10 +1153,20 @@ class YiffDownloader(ctk.CTk):
     # PREVIEW (ANIMATED GIF)
     # ========================================================
     def update_preview(self, filepath):
+        """Display preview of downloaded file (image, video, or GIF)"""
+        # Skip preview if disabled in settings
+        if self.config.get("disable_preview", False):
+            return
+        
         try:
             path = Path(filepath)
             if not path.exists():
                 return
+            
+            # ===== CRITICAL: Stop any previous animation FIRST =====
+            self._stop_animation()
+            self.preview_label.configure(image="", text="")
+            
             ext = path.suffix.lower()
 
             if ext == ".gif":
@@ -1124,10 +1176,13 @@ class YiffDownloader(ctk.CTk):
             elif ext in {".jpg", ".jpeg", ".png", ".webp", ".bmp"}:
                 img = Image.open(path)
                 self._set_preview_image(img)
+            else:
+                self.preview_label.configure(text=f"📄 {ext}", image="")
+                return
 
             size_mb = path.stat().st_size / (1024 * 1024)
             self.preview_info.configure(
-                text=f"📄 {path.name}\n📦 {size_mb:.2f} MB\n📁 {path.parent}"
+                text=f"📄 {path.name} | {size_mb:.2f} MB"
             )
         except Exception as e:
             self.log(f"Preview error: {e}", "error")
@@ -1171,14 +1226,25 @@ class YiffDownloader(ctk.CTk):
             pass
 
     def _stop_animation(self):
+        """Stop any running GIF animation and clear all frames"""
+        # Cancel scheduled job
         if hasattr(self, "gif_job") and self.gif_job:
             try:
                 self.after_cancel(self.gif_job)
             except Exception:
                 pass
             self.gif_job = None
-        if hasattr(self, "gif_frames"):
-            self.gif_frames = []
+        
+        # Clear all GIF data
+        self.gif_frames = []
+        self.gif_durations = []
+        self.gif_index = 0
+        
+        # Reset preview label
+        try:
+            self.preview_label.configure(image="", text="")
+        except Exception:
+            pass
 
     def _show_video_gif(self, video_path):
         """Convert middle 10 seconds of video to animated GIF for preview"""
@@ -1190,7 +1256,7 @@ class YiffDownloader(ctk.CTk):
                 return
 
             duration = self._get_video_duration(video_path)
-            PREVIEW_DURATION = 10
+            PREVIEW_DURATION = 6
 
             if duration <= PREVIEW_DURATION:
                 start_time = 0
@@ -1203,7 +1269,7 @@ class YiffDownloader(ctk.CTk):
                 "-ss", str(start_time),
                 "-t", str(PREVIEW_DURATION),
                 "-i", str(video_path),
-                "-vf", "fps=10,scale=400:-1:flags=lanczos",
+                "-vf", "fps=5,scale=320:-1:flags=lanczos",
                 "-loop", "0",
                 str(tmp_gif), "-y", "-loglevel", "error",
             ]
@@ -1406,8 +1472,11 @@ class YiffDownloader(ctk.CTk):
                 progress_cb=lambda c, t: self.after(0, self._update_progress, c, t),
                 stats_cb=lambda **kw: ConfigManager.update_stats(**kw),
             )
-            self.log(f"🔍 Searching: {tags} (limit: {limit})")
             api = E621API(self.config)
+            tags_fixed = api.sanitize_tags(tags)
+            if tags_fixed != tags:
+                self.log(f"Auto-fixed tag: {tags} -> {tags_fixed}", "info")
+            self.log(f"Searching: {tags_fixed} (limit: {limit})")
             result = api.fetch_all(
                 tags, limit,
                 progress_cb=lambda m: self.log(m),
@@ -1429,7 +1498,7 @@ class YiffDownloader(ctk.CTk):
                 ))
                 return
             self.log(f"Found {len(posts)} posts. Starting download...", "success")
-            self.downloader.process(posts, download_dir)
+            self.downloader.process(posts, download_dir, query=tags)
         except Exception as e:
             self.log(f"Fatal error: {e}", "error")
         finally:
