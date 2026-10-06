@@ -60,7 +60,7 @@ Built with **CustomTkinter** for a sleek interface and **FFmpeg** for fast, reli
 
 
 
-## 🎬 Demo
+## 🎬 Mwahahaha! 😈
 
 ![Yiff Downloader Demo](assets/demo.gif)
 
