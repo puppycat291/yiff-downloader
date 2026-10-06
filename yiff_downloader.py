@@ -433,6 +433,23 @@ class YiffDownloader(ctk.CTk):
         self.minsize(1050, 720)
         self.configure(fg_color=self.theme["bg_dark"])
 
+        # Taskbar visibility + icon
+        try:
+            self.wm_attributes("-type", "normal")
+        except Exception:
+            pass
+        self.lift()
+        self.focus_force()
+
+        icon_path = Path.home() / "YiffDownloader" / "icon.png"
+        if icon_path.exists():
+            try:
+                icon_img = ImageTk.PhotoImage(Image.open(str(icon_path)))
+                self.iconphoto(True, icon_img)
+                self._icon_ref = icon_img
+            except Exception:
+                pass
+
         self.downloader = None
         self.download_thread = None
         self.preview_photo = None
