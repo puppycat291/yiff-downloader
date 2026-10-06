@@ -29,7 +29,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # ---------- Step 1: System packages ----------
 echo -e "${B}[1/7]${NC} Installing system packages (needs sudo)..."
 sudo apt update -qq
-sudo apt install -y python3 python3-venv python3-tk ffmpeg > /dev/null 2>&1
+sudo apt install -y python3 python3-venv python3-tk ffmpeg wmctrl xdotool > /dev/null 2>&1
 echo -e "${G}   ✓ Done${NC}"
 
 # ---------- Step 2: Create app dir ----------
@@ -127,8 +127,40 @@ print(f"   Icon saved: {icon_path}")
 PYEOF
 echo -e "${G}   ✓ Icon created${NC}"
 
-# ---------- Step 6: Create desktop entry ----------
-echo -e "${B}[6/7]${NC} Creating desktop entry..."
+# ---------- Step 6: Create smart launcher ----------
+echo -e "${B}[6/7]${NC} Creating smart launcher..."
+
+cat > "$APP_DIR/launch.sh" << 'LAUNCHER_EOF'
+#!/bin/bash
+# Yiff Downloader - Smart Launcher
+APP_DIR="__APP_DIR__"
+PYTHON_SCRIPT="$APP_DIR/yiff_downloader.py"
+VENV="$APP_DIR/.venv"
+
+if pgrep -f "python3.*yiff_downloader.py" > /dev/null 2>&1; then
+    if command -v wmctrl > /dev/null 2>&1; then
+        wmctrl -a "Yiff Downloader" 2>/dev/null && exit 0
+    fi
+    if command -v xdotool > /dev/null 2>&1; then
+        WID=$(xdotool search --name "Yiff Downloader" 2>/dev/null | head -1)
+        if [ -n "$WID" ]; then
+            xdotool windowactivate "$WID" 2>/dev/null && exit 0
+        fi
+    fi
+    exit 0
+fi
+
+cd "$APP_DIR"
+source "$VENV/bin/activate"
+exec python3 "$PYTHON_SCRIPT"
+LAUNCHER_EOF
+
+sed -i "s|__APP_DIR__|$APP_DIR|g" "$APP_DIR/launch.sh"
+chmod +x "$APP_DIR/launch.sh"
+echo -e "${G}   ✓ Smart launcher created${NC}"
+
+# ---------- Step 7: Create desktop entry ----------
+echo -e "${B}[7/7]${NC} Creating desktop entry..."
 mkdir -p "$DESKTOP_DIR"
 
 cat > "$DESKTOP_FILE" << EOF
@@ -136,42 +168,34 @@ cat > "$DESKTOP_FILE" << EOF
 Version=1.0
 Type=Application
 Name=Yiff Downloader
-Comment=Furry-themed e621 downloader
-Exec=bash -c 'cd $APP_DIR && source .venv/bin/activate && python3 yiff_downloader.py'
+Comment=Furry-themed media downloader
+Exec=$APP_DIR/launch.sh
 Icon=$ICON_FILE
 Terminal=false
 Categories=Network;FileTransfer;Utility;
 StartupNotify=true
+StartupWMClass=Yiff Downloader
 EOF
 
 chmod +x "$DESKTOP_FILE"
 
-# Update desktop database
 if command -v update-desktop-database > /dev/null; then
     update-desktop-database "$DESKTOP_DIR" 2>/dev/null || true
 fi
 echo -e "${G}   ✓ Desktop entry created${NC}"
 
-# ---------- Step 7: Copy to Desktop ----------
-echo -e "${B}[7/7]${NC} Creating desktop shortcut..."
-# Try to detect desktop folder
-if [ -d "$HOME/Desktop" ]; then
-    DESK="$HOME/Desktop"
-elif [ -d "$HOME/سطح المكتب" ]; then
-    DESK="$HOME/سطح المكتب"
-else
-    DESK="$HOME/Desktop"
-    mkdir -p "$DESK"
-fi
-
+# ---------- Copy to Desktop ----------
+DESK="$HOME/Desktop"
+[ -d "$HOME/Desktop" ] || DESK="$HOME/سطح المكتب"
+[ -d "$DESK" ] || DESK="$HOME/Desktop"
+mkdir -p "$DESK"
 cp "$DESKTOP_FILE" "$DESK/Yiff Downloader.desktop"
 chmod +x "$DESK/Yiff Downloader.desktop"
 
-# Mark as trusted (GNOME)
 if command -v gio > /dev/null; then
     gio set "$DESK/Yiff Downloader.desktop" metadata::trusted true 2>/dev/null || true
 fi
-echo -e "${G}   ✓ Shortcut: $DESK/Yiff Downloader.desktop${NC}"
+echo -e "${G}   ✓ Desktop shortcut: $DESK/Yiff Downloader.desktop${NC}"
 
 # ---------- Done ----------
 echo ""

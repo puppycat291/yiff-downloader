@@ -21,6 +21,14 @@ from PIL import Image, ImageTk
 import requests
 
 # ============================================================
+# 📌 APP INFO
+# ============================================================
+__version__ = "2.0.0"
+GITHUB_REPO = "puppycat291/yiff-downloader"
+VERSION_URL = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/version.txt"
+REPO_URL = f"https://github.com/{GITHUB_REPO}"
+
+# ============================================================
 # 🎨 THEMES
 # ============================================================
 THEMES = {
@@ -70,6 +78,7 @@ class ConfigManager:
         "video_quality": "High", "folder_structure": "none",
         "theme": "Furry Orange",
         "last_query": "", "last_limit": 100,
+        "last_update_check": "", "auto_check_updates": True,
     }
 
     @classmethod
@@ -468,6 +477,8 @@ class YiffDownloader(ctk.CTk):
 
         # First-run warnings (inside app)
         self.after(800, self._startup_checks)
+        # Auto-check updates (after 3s)
+        self.after(3000, self._check_updates_auto)
 
     # ========================================================
     # HEADER
@@ -805,54 +816,130 @@ class YiffDownloader(ctk.CTk):
         ).pack(fill="x", padx=15, pady=(10, 20))
 
     # ========================================================
+    # UPDATE CHECKER
+    # ========================================================
+    def _check_updates_auto(self):
+        """Auto-check updates every 24h"""
+        try:
+            cfg = ConfigManager.load()
+            if not cfg.get("auto_check_updates", True):
+                return
+            last = cfg.get("last_update_check", "")
+            if last:
+                try:
+                    from datetime import datetime as dt
+                    last_dt = dt.fromisoformat(last)
+                    if (dt.now() - last_dt).total_seconds() < 86400:
+                        return
+                except Exception:
+                    pass
+            self._check_updates(silent=True)
+            from datetime import datetime as dt
+            ConfigManager.update(last_update_check=dt.now().isoformat())
+        except Exception:
+            pass
+
+    def _check_updates(self, silent=False):
+        """Check GitHub for new version"""
+        try:
+            if not silent:
+                self.log("Checking for updates...")
+            r = requests.get(VERSION_URL, timeout=10,
+                             headers={"User-Agent": f"YiffDownloader/{__version__}"})
+            if r.status_code != 200:
+                if not silent:
+                    self.log(f"Cannot check updates (HTTP {r.status_code})", "warning")
+                    messagebox.showwarning("Update Check",
+                        f"Could not reach GitHub. HTTP {r.status_code}")
+                return
+            latest = r.text.strip()
+            current = __version__
+            if latest == current:
+                if not silent:
+                    self.log(f"You're on latest version ({current})", "success")
+                    messagebox.showinfo("Up to Date",
+                        f"You are running the latest version! (v{current})")
+                return
+            self.log(f"New version available: {latest} (current: {current})", "success")
+            result = messagebox.askyesno(
+                "Update Available",
+                f"A new version is available!\nCurrent: {current}\nLatest: {latest}\n\nOpen GitHub to download?",
+            )
+            if result:
+                import webbrowser
+                webbrowser.open(REPO_URL)
+        except requests.exceptions.Timeout:
+            if not silent:
+                self.log("Update check timed out", "warning")
+        except Exception as e:
+            if not silent:
+                self.log(f"Update check failed: {e}", "warning")
+
+    # ========================================================
     # TAB 4: ABOUT
     # ========================================================
     def _build_about_tab(self):
         tab = self.tabview.tab("ℹ️ About")
         tab.configure(fg_color=self.theme["bg_dark"])
 
-        c = ctk.CTkFrame(tab, fg_color=self.theme["bg_mid"], corner_radius=12)
-        c.pack(fill="both", expand=True, padx=40, pady=40)
+        scroll = ctk.CTkScrollableFrame(tab, fg_color=self.theme["bg_mid"], corner_radius=12)
+        scroll.pack(fill="both", expand=True, padx=20, pady=20)
 
-        ctk.CTkLabel(c, text="🐾", font=ctk.CTkFont(size=80),
-                     text_color=self.theme["primary"]).pack(pady=(30, 5))
+        ctk.CTkLabel(scroll, text="🐾", font=ctk.CTkFont(size=60),
+                     text_color=self.theme["primary"]).pack(pady=(20, 5))
 
-        ctk.CTkLabel(c, text="Yiff Downloader", font=self.font_logo,
+        ctk.CTkLabel(scroll, text="Yiff Downloader", font=self.font_logo,
                      text_color=self.theme["primary"]).pack()
 
-        ctk.CTkLabel(c, text="Version 2.0.0", font=self.font_small,
-                     text_color=TEXT_DIM).pack(pady=(0, 20))
+        ctk.CTkLabel(scroll, text=f"Version {__version__}", font=self.font_small,
+                     text_color=TEXT_DIM).pack(pady=(0, 10))
 
-        ctk.CTkLabel(
-            c,
-            text="A modern furry-themed downloader for e621.net\n"
-                 "with auto MP4 conversion, live preview & more.\n\n"
-                 "Features:\n"
-                 "  📥 Bulk download with pagination\n"
-                 "  🎬 Auto-convert videos to MP4\n"
-                 "  👁️  Live preview of downloads\n"
-                 "  ⏭️  Skip button to filter on-the-fly\n"
-                 "  🖼️  Gallery of downloaded files\n"
-                 "  🎨 4 Themes\n"
-                 "  📊 Statistics & progress tracking",
-            font=self.font_label, text_color=TEXT, justify="center",
-        ).pack(pady=15)
+        btn_row = ctk.CTkFrame(scroll, fg_color="transparent")
+        btn_row.pack(pady=(5, 15))
+
+        ctk.CTkButton(
+            btn_row, text="Check for Updates", height=36, width=170,
+            fg_color=self.theme["primary"], hover_color=self.theme["primary_hover"],
+            text_color="#1a1625", font=self.font_button,
+            command=self._check_updates,
+        ).pack(side="left", padx=5)
+
+        ctk.CTkButton(
+            btn_row, text="Open GitHub", height=36, width=140,
+            fg_color=self.theme["secondary"], hover_color=self.theme["secondary_hover"],
+            font=self.font_button,
+            command=lambda: __import__("webbrowser").open(REPO_URL),
+        ).pack(side="left", padx=5)
+
+        desc = (
+            "A modern furry-themed downloader for e621.net" + chr(10) +
+            "with auto MP4 conversion, live preview & more." + chr(10) + chr(10) +
+            "Features:" + chr(10) +
+            "  - Bulk download with pagination" + chr(10) +
+            "  - Auto-convert videos to MP4" + chr(10) +
+            "  - Live preview of downloads" + chr(10) +
+            "  - Skip button to filter on-the-fly" + chr(10) +
+            "  - Gallery of downloaded files" + chr(10) +
+            "  - 4 Themes" + chr(10) +
+            "  - Statistics & progress tracking"
+        )
+        ctk.CTkLabel(scroll, text=desc, font=self.font_label,
+                     text_color=TEXT, justify="center").pack(pady=10)
 
         stats = ConfigManager.load_stats()
-        ctk.CTkLabel(
-            c,
-            text=(
-                f"📊 Your Stats:\n"
-                f"   Downloads: {stats.get('total_downloads', 0)}\n"
-                f"   Conversions: {stats.get('total_conversions', 0)}\n"
-                f"   Total Size: {Utils.fmt_size(stats.get('total_size_mb', 0))}\n"
-                f"   Total Time: {Utils.fmt_time(stats.get('total_time_seconds', 0))}"
-            ),
-            font=self.font_small, text_color=TEXT_DIM, justify="center",
-        ).pack(pady=20)
+        stats_text = (
+            "Your Stats:" + chr(10) +
+            "   Downloads: " + str(stats.get("total_downloads", 0)) + chr(10) +
+            "   Conversions: " + str(stats.get("total_conversions", 0)) + chr(10) +
+            "   Total Size: " + Utils.fmt_size(stats.get("total_size_mb", 0)) + chr(10) +
+            "   Total Time: " + Utils.fmt_time(stats.get("total_time_seconds", 0))
+        )
+        ctk.CTkLabel(scroll, text=stats_text, font=self.font_small,
+                     text_color=TEXT_DIM, justify="center").pack(pady=15)
 
-        ctk.CTkLabel(c, text="Made with ❤️ for the furry community",
-                     font=self.font_small, text_color=TEXT_DIM).pack(pady=(10, 30))
+        ctk.CTkLabel(scroll, text="Made with love for the furry community",
+                     font=self.font_small, text_color=TEXT_DIM).pack(pady=(5, 20))
+
     # ========================================================
     # HELPERS
     # ========================================================
