@@ -488,16 +488,56 @@ class YiffDownloader(ctk.CTk):
         self.header.pack(fill="x", side="top")
         self.header.pack_propagate(False)
 
+        # Animated GIF on the left
+        gif_path = Path.home() / "YiffDownloader" / "header.gif"
+        self.header_gif_frames = []
+        self.header_gif_durations = []
+        self.header_gif_index = 0
+        self.header_gif_job = None
+        self.header_gif_label = None
+
+        if gif_path.exists():
+            try:
+                gif = Image.open(str(gif_path))
+                for frame_idx in range(gif.n_frames):
+                    gif.seek(frame_idx)
+                    frame = gif.copy().convert("RGBA")
+                    frame = frame.resize((48, 48), Image.LANCZOS)
+                    self.header_gif_frames.append(ImageTk.PhotoImage(frame))
+                    self.header_gif_durations.append(gif.info.get("duration", 100))
+                if self.header_gif_frames:
+                    self.header_gif_label = ctk.CTkLabel(
+                        self.header, text="",
+                        image=self.header_gif_frames[0],
+                    )
+                    self.header_gif_label.pack(side="left", padx=(15, 5), pady=10)
+                    self._animate_header_gif()
+            except Exception as e:
+                print(f"Header GIF error: {e}")
+
+        # Logo text
         ctk.CTkLabel(
             self.header, text="🐾 Yiff Downloader 🐾",
             font=self.font_logo, text_color=self.theme["primary"],
-        ).pack(side="left", padx=25)
+        ).pack(side="left", padx=(5, 25))
 
         self.status_label = ctk.CTkLabel(
             self.header, text="● Ready",
             font=self.font_label, text_color=SUCCESS,
         )
         self.status_label.pack(side="right", padx=25)
+
+    def _animate_header_gif(self):
+        """Animate the header GIF"""
+        if not self.header_gif_frames or self.header_gif_label is None:
+            return
+        try:
+            self.header_gif_label.configure(image=self.header_gif_frames[self.header_gif_index])
+            delay = self.header_gif_durations[self.header_gif_index]
+            self.header_gif_index = (self.header_gif_index + 1) % len(self.header_gif_frames)
+            self.header_gif_job = self.after(delay, self._animate_header_gif)
+        except Exception:
+            pass
 
     # ========================================================
     # TABS
