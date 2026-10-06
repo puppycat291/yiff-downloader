@@ -60,72 +60,47 @@ pip install customtkinter pillow requests -q
 deactivate
 echo -e "${G}   ✓ Virtual environment ready${NC}"
 
-# ---------- Step 5: Create icon ----------
-echo -e "${B}[5/7]${NC} Creating icon..."
-python3 << 'PYEOF'
-from PIL import Image, ImageDraw, ImageFont
-import os
+# ---------- Step 5: Install icon and GIF ----------
+echo -e "${B}[5/7]${NC} Installing icon and header GIF..."
 
-icon_path = os.path.expanduser("~/YiffDownloader/icon.png")
-size = 256
-
-# Create orange gradient background
-img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+if [ -f "$SCRIPT_DIR/assets/icon.png" ]; then
+    cp "$SCRIPT_DIR/assets/icon.png" "$APP_DIR/icon.png"
+    echo -e "${G}   ✓ Icon installed from assets${NC}"
+else
+    echo -e "${Y}   ⚠ assets/icon.png not found, generating default${NC}"
+    python3 -c "
+from PIL import Image, ImageDraw
+img = Image.new('RGBA', (512, 512), (0, 0, 0, 0))
 draw = ImageDraw.Draw(img)
+draw.rounded_rectangle([40, 40, 472, 472], radius=100, fill=(255, 140, 66, 255))
+draw.ellipse([190, 280, 320, 400], fill=(26, 22, 37, 255))
+draw.ellipse([140, 180, 210, 250], fill=(26, 22, 37, 255))
+draw.ellipse([230, 150, 300, 220], fill=(26, 22, 37, 255))
+draw.ellipse([310, 180, 380, 250], fill=(26, 22, 37, 255))
+img.save('$APP_DIR/icon.png', 'PNG')
+"
+    echo -e "${G}   ✓ Default icon created${NC}"
+fi
 
-# Rounded rect background
-margin = 20
-draw.rounded_rectangle(
-    [margin, margin, size - margin, size - margin],
-    radius=50,
-    fill=(255, 140, 66, 255)  # Furry orange
-)
+if [ -f "$SCRIPT_DIR/assets/header.gif" ]; then
+    cp "$SCRIPT_DIR/assets/header.gif" "$APP_DIR/header.gif"
+    echo -e "${G}   ✓ Header GIF installed${NC}"
+fi
 
-# Try to draw paw emoji
-try:
-    # Try common emoji fonts
-    font_paths = [
-        "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
-        "/usr/share/fonts/truetype/noto/NotoEmoji-Regular.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-    ]
-    font = None
-    for fp in font_paths:
-        if os.path.exists(fp):
-            try:
-                font = ImageFont.truetype(fp, 140)
-                break
-            except Exception:
-                continue
-
-    if font:
-        # Try paw emoji
-        text = "🐾"
-        try:
-            bbox = draw.textbbox((0, 0), text, font=font)
-            w = bbox[2] - bbox[0]
-            h = bbox[3] - bbox[1]
-            draw.text(
-                ((size - w) / 2 - bbox[0], (size - h) / 2 - bbox[1]),
-                text, font=font, fill=(26, 22, 37, 255)
-            )
-        except Exception:
-            # Fallback: draw simple paw shape
-            raise Exception("emoji failed")
-    else:
-        raise Exception("no font")
-except Exception:
-    # Draw a simple paw shape
-    draw.ellipse([95, 140, 160, 200], fill=(26, 22, 37, 255))  # main pad
-    # toes
-    draw.ellipse([70, 90, 105, 125], fill=(26, 22, 37, 255))
-    draw.ellipse([115, 75, 150, 110], fill=(26, 22, 37, 255))
-    draw.ellipse([155, 90, 190, 125], fill=(26, 22, 37, 255))
-
-img.save(icon_path, "PNG")
-print(f"   Icon saved: {icon_path}")
-PYEOF
-echo -e "${G}   ✓ Icon created${NC}"
+# Generate system icons for taskbar
+python3 -c "
+from PIL import Image
+from pathlib import Path
+src = Path('$APP_DIR/icon.png')
+if src.exists():
+    img = Image.open(src).convert('RGBA')
+    icons_dir = Path.home() / '.local' / 'share' / 'icons' / 'hicolor'
+    for s in [16, 32, 48, 64, 128, 256, 512]:
+        d = icons_dir / f'{s}x{s}' / 'apps'
+        d.mkdir(parents=True, exist_ok=True)
+        img.resize((s, s), Image.LANCZOS).save(d / 'yiff-downloader.png', 'PNG')
+"
+echo -e "${G}   ✓ System icons generated${NC}"
 
 # ---------- Step 6: Create smart launcher ----------
 echo -e "${B}[6/7]${NC} Creating smart launcher..."
