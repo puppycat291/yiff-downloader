@@ -23,7 +23,7 @@ import requests
 # ============================================================
 # APP INFO
 # ============================================================
-__version__ = "2.1.2"
+__version__ = "2.1.3"
 GITHUB_REPO = "puppycat291/yiff-downloader"
 VERSION_URL = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/version.txt"
 REPO_URL = f"https://github.com/{GITHUB_REPO}"
